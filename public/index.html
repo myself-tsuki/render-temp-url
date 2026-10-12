@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CFTun &mdash; Ephemeral Cloudflare Quick Tunnel Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="mesh-bg"></div>
+
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="logo-title">CFTUN<span>.IO</span></h1>
+        <p class="logo-subtitle">Cloudflare Quick Tunnel &amp; Render-Stealth Proxy</p>
+      </div>
+    </div>
+
+    <div class="header-badges">
+      <div class="badge badge-public">
+        <span class="dot dot-green"></span>
+        <span class="label">PUBLIC:</span>
+        <strong id="badge-public-port">:10000</strong>
+      </div>
+      <div class="badge badge-stealth">
+        <span class="dot dot-purple"></span>
+        <span class="label">STEALTH PROXY:</span>
+        <strong id="badge-stealth-port">127.0.0.1:8000</strong>
+      </div>
+      <div class="badge badge-status" id="badge-conn-status">
+        <span class="dot dot-cyan"></span>
+        <span id="conn-status-text">CONNECTED</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Active Tunnel Spotlight Banner -->
+    <section class="card active-spotlight" id="active-banner" style="display: none;">
+      <div class="spotlight-header">
+        <div class="live-indicator">
+          <span class="pulse-ring"></span>
+          <span class="pulse-dot"></span>
+          <span class="live-text">TUNNEL ACTIVE</span>
+        </div>
+        <div class="timer-display">
+          <span class="timer-label">EXPIRES IN</span>
+          <span class="timer-digits" id="live-timer">00:00:00</span>
+        </div>
+      </div>
+
+      <div class="tunnel-url-box">
+        <div class="url-details">
+          <span class="url-tag">PUBLIC QUICK TUNNEL</span>
+          <a href="#" target="_blank" id="active-tunnel-link" class="tunnel-link" rel="noopener noreferrer">
+            https://xxxx.trycloudflare.com
+          </a>
+        </div>
+        <div class="url-actions">
+          <button class="btn btn-secondary btn-icon" id="btn-copy-url" title="Copy URL">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2"></path>
+            </svg>
+            <span id="copy-btn-text">Copy</span>
+          </button>
+          <button class="btn btn-secondary btn-icon" id="btn-open-url" title="Open Link">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke-width="2"></path>
+              <polyline points="15 3 21 3 21 9" stroke-width="2"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3" stroke-width="2"></line>
+            </svg>
+            <span>Open</span>
+          </button>
+          <button class="btn btn-danger btn-icon" id="btn-stop-active" title="Destroy Tunnel">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+              <line x1="15" y1="9" x2="9" y2="15" stroke-width="2"></line>
+              <line x1="9" y1="9" x2="15" y2="15" stroke-width="2"></line>
+            </svg>
+            <span>Kill Tunnel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="timer-progress-fill"></div>
+      </div>
+
+      <div class="spotlight-footer">
+        <div class="footer-stat">
+          <span class="stat-name">Forwarding To:</span>
+          <span class="stat-value mono" id="active-target-display">-</span>
+        </div>
+        <div class="footer-stat">
+          <span class="stat-name">Total Requests Forwarded:</span>
+          <span class="stat-value mono highlight" id="active-req-count">0</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="dashboard-grid">
+      <!-- Create Tunnel Panel -->
+      <section class="card config-panel">
+        <div class="panel-header">
+          <div class="icon-circle">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <h2>Launch Quick Tunnel</h2>
+            <p>Proxy any target URL through Cloudflare with automated TTL expiration</p>
+          </div>
+        </div>
+
+        <form id="tunnel-form">
+          <div class="form-group">
+            <label for="target-url">
+              Target Destination URL
+              <span class="hint">The local or remote server to expose</span>
+            </label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+                <line x1="2" y1="12" x2="22" y2="12" stroke-width="2"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-width="2"></path>
+              </svg>
+              <input
+                type="url"
+                id="target-url"
+                name="targetUrl"
+                placeholder="http://localhost:3000 or https://example.com"
+                required
+              />
+            </div>
+            <div class="preset-urls">
+              <span class="preset-label">Quick samples:</span>
+              <button type="button" class="chip" data-url="https://httpbin.org/get">httpbin.org</button>
+              <button type="button" class="chip" data-url="http://localhost:3000">localhost:3000</button>
+              <button type="button" class="chip" data-url="http://localhost:5000">localhost:5000</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="flex-between">
+              <label for="duration-slider">
+                Tunnel Lifetime (TTL Expiration)
+                <span class="hint">Minimum 10s &bull; Maximum 12 hours</span>
+              </label>
+              <span class="duration-badge mono" id="duration-preview">15 Minutes (900s)</span>
+            </div>
+
+            <!-- Quick Pill Buttons -->
+            <div class="duration-pills">
+              <button type="button" class="pill" data-sec="10">10s</button>
+              <button type="button" class="pill" data-sec="60">1m</button>
+              <button type="button" class="pill" data-sec="300">5m</button>
+              <button type="button" class="pill active" data-sec="900">15m</button>
+              <button type="button" class="pill" data-sec="3600">1h</button>
+              <button type="button" class="pill" data-sec="21600">6h</button>
+              <button type="button" class="pill" data-sec="43200">12h</button>
+            </div>
+
+            <!-- Fine-Grained Inputs -->
+            <div class="time-inputs-row">
+              <div class="time-input-col">
+                <input type="number" id="input-hrs" min="0" max="12" value="0" />
+                <span>Hours</span>
+              </div>
+              <span class="colon">:</span>
+              <div class="time-input-col">
+                <input type="number" id="input-mins" min="0" max="59" value="15" />
+                <span>Minutes</span>
+              </div>
+              <span class="colon">:</span>
+              <div class="time-input-col">
+                <input type="number" id="input-secs" min="0" max="59" value="0" />
+                <span>Seconds</span>
+              </div>
+            </div>
+            <input type="hidden" id="duration-seconds" value="900" />
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-block" id="btn-submit">
+              <span class="btn-spinner" id="btn-spinner" style="display: none;"></span>
+              <span id="btn-submit-text">Launch Cloudflare Tunnel</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="stealth-info-callout">
+          <div class="stealth-icon">🛡️</div>
+          <div class="stealth-text">
+            <strong>Render.com Stealth Architecture:</strong>
+            Port 10000 binds to <code>0.0.0.0</code> (detected by Render as the main Web Service).
+            Port 8000 binds strictly to <code>127.0.0.1</code> (loopback interface), preventing Render from registering multiple conflicting ports while Cloudflared establishes the outgoing tunnel cleanly.
+          </div>
+        </div>
+      </section>
+
+      <!-- Live Logs & Status Console -->
+      <section class="card console-panel">
+        <div class="panel-header flex-between">
+          <div class="flex-center gap-2">
+            <div class="icon-circle icon-circle-gray">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <polyline points="4 17 10 11 4 5" stroke-width="2"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19" stroke-width="2"></line>
+              </svg>
+            </div>
+            <div>
+              <h2>Live Event Stream</h2>
+              <p>Real-time tunnel daemon stdout &amp; proxy activity</p>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-clear-logs">Clear</button>
+        </div>
+
+        <div class="console-box" id="console-stream">
+          <div class="console-entry info">
+            <span class="log-time">[Init]</span>
+            <span class="log-msg">Connecting to live server event stream...</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span>CFTun v1.0 &bull; Powered by Cloudflare Quick Tunnels (<code>trycloudflare.com</code>)</span>
+    <span>Dual Ports &bull; Localhost Loopback Isolation</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

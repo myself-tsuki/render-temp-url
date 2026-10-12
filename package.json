@@ -1,0 +1,14 @@
+{
+  "name": "cftun",
+  "version": "1.0.0",
+  "description": "Docker-based Quick Cloudflare Tunnel & Proxy Server for Render",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "http-proxy": "^1.18.1"
+  }
+}

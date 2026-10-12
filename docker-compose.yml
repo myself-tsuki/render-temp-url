@@ -1,0 +1,13 @@
+services:
+  cftun:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cftun-gateway
+    restart: unless-stopped
+    ports:
+      - "10000:10000"
+    environment:
+      - PORT=10000
+      - INTERNAL_HOST=127.0.0.1
+      - INTERNAL_PORT=8000
