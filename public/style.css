@@ -144,6 +144,11 @@ body {
   background: rgba(168, 85, 247, 0.08);
 }
 
+.badge-pinger {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.08);
+}
+
 .dot {
   width: 7px;
   height: 7px;
@@ -153,6 +158,7 @@ body {
 .dot-green { background-color: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
 .dot-purple { background-color: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple); }
 .dot-cyan { background-color: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
+.dot-amber { background-color: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber); }
 
 /* Main Container */
 .main-container {
@@ -670,6 +676,53 @@ input[type="number"]:focus {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Pinger Card */
+.pinger-card {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pinger-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #fff;
+}
+
+.pinger-counter {
+  font-size: 0.75rem;
+  color: var(--accent-amber);
+  background: rgba(245, 158, 11, 0.12);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.pinger-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pinger-input-row input {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+}
+
+.pinger-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 /* Callout */

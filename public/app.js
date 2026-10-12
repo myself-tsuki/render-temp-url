@@ -31,6 +31,12 @@
   const badgeConnStatus = document.getElementById('badge-conn-status');
   const connStatusText = document.getElementById('conn-status-text');
 
+  const inputPingerUrl = document.getElementById('input-pinger-url');
+  const btnSavePinger = document.getElementById('btn-save-pinger');
+  const pingerCountText = document.getElementById('pinger-count-text');
+  const pingerLastStatus = document.getElementById('pinger-last-status');
+  const pingerStatusBadge = document.getElementById('pinger-status-badge');
+
   let currentSession = null;
   let countdownInterval = null;
 
@@ -292,6 +298,45 @@
     }
   });
 
+  function renderPingerState(pinger) {
+    if (!pinger) return;
+    if (inputPingerUrl && document.activeElement !== inputPingerUrl && pinger.url) {
+      inputPingerUrl.value = pinger.url;
+    }
+    if (pingerCountText) {
+      pingerCountText.textContent = `${pinger.pingCount || 0} pings`;
+    }
+    if (pingerLastStatus) {
+      const timeStr = pinger.lastPingAt ? new Date(pinger.lastPingAt).toLocaleTimeString() : 'Never';
+      pingerLastStatus.textContent = `Last: ${pinger.lastStatus || 'idle'} @ ${timeStr}`;
+    }
+    if (pingerStatusBadge) {
+      pingerStatusBadge.textContent = pinger.enabled ? '40s ACTIVE' : 'PAUSED';
+    }
+  }
+
+  if (btnSavePinger) {
+    btnSavePinger.addEventListener('click', async () => {
+      const url = inputPingerUrl.value.trim();
+      if (!url) return;
+      try {
+        btnSavePinger.disabled = true;
+        const res = await fetch('/api/pinger/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (data.pinger) renderPingerState(data.pinger);
+        alert('Keep-alive ping target updated!');
+      } catch (err) {
+        alert('Failed to update pinger: ' + err.message);
+      } finally {
+        btnSavePinger.disabled = false;
+      }
+    });
+  }
+
   // -----------------------------------------------------------
   // SSE Events & Polling
   // -----------------------------------------------------------
@@ -305,6 +350,9 @@
       }
       if (data.stats) {
         activeReqCount.textContent = data.stats.totalRequests || 0;
+      }
+      if (data.pinger) {
+        renderPingerState(data.pinger);
       }
       renderSessionState(data.session);
     } catch (_) {}
@@ -328,6 +376,9 @@
           }
           if (msg.data) {
             renderSessionState(msg.data.session);
+            if (msg.data.pinger) {
+              renderPingerState(msg.data.pinger);
+            }
             if (msg.data.server) {
               badgePublicPort.textContent = `:${msg.data.server.publicPort}`;
               badgeStealthPort.textContent = `${msg.data.server.internalHost}:${msg.data.server.internalPort}`;
@@ -340,6 +391,8 @@
           appendLogEntry(msg.data);
         } else if (msg.type === 'status') {
           renderSessionState(msg.data.session);
+        } else if (msg.type === 'pinger') {
+          renderPingerState(msg.data);
         } else if (msg.type === 'stats') {
           activeReqCount.textContent = msg.data.totalRequests || 0;
         }

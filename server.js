@@ -244,6 +244,7 @@ function getStatusPayload() {
       remainingSeconds
     } : null,
     stats: requestStats,
+    pinger: pingerState,
     server: {
       publicPort: PUBLIC_PORT,
       internalHost: INTERNAL_HOST,
@@ -355,13 +356,70 @@ app.get('/api/events', (req, res) => {
   });
 });
 
+// -------------------------------------------------------------
+// 40-Second Keep-Alive Pinger (Prevents Render spin-down)
+// -------------------------------------------------------------
+let pingerState = {
+  enabled: true,
+  url: process.env.PING_URL || process.env.RENDER_EXTERNAL_URL || 'https://render-temp-url.onrender.com/',
+  intervalMs: 40000,
+  pingCount: 0,
+  lastPingAt: null,
+  lastStatus: 'idle'
+};
+
+async function executeKeepAlivePing() {
+  if (!pingerState.enabled || !pingerState.url) return;
+
+  try {
+    const res = await fetch(pingerState.url, {
+      method: 'GET',
+      headers: { 'User-Agent': 'CFTun-KeepAlive/1.0' },
+      signal: AbortSignal.timeout(10000)
+    });
+
+    pingerState.pingCount += 1;
+    pingerState.lastPingAt = new Date().toISOString();
+    pingerState.lastStatus = `${res.status} ${res.statusText}`;
+
+    broadcast({ type: 'pinger', data: pingerState });
+  } catch (err) {
+    pingerState.lastPingAt = new Date().toISOString();
+    pingerState.lastStatus = `ERR: ${err.message}`;
+    broadcast({ type: 'pinger', data: pingerState });
+  }
+}
+
+const pingerInterval = setInterval(executeKeepAlivePing, pingerState.intervalMs);
+// Initial ping after 5 seconds
+setTimeout(executeKeepAlivePing, 5000);
+
+app.post('/api/pinger/config', (req, res) => {
+  const { url, enabled } = req.body;
+  if (typeof url === 'string') {
+    pingerState.url = url.trim();
+    addLog(`Keep-alive ping target set to: ${pingerState.url}`, 'info');
+  }
+  if (typeof enabled === 'boolean') {
+    pingerState.enabled = enabled;
+  }
+  broadcast({ type: 'pinger', data: pingerState });
+  res.json({ message: 'Pinger settings updated', pinger: pingerState });
+});
+
+app.get('/api/pinger', (req, res) => {
+  res.json(pingerState);
+});
+
 // Clean shutdown listeners
 process.on('SIGTERM', () => {
+  clearInterval(pingerInterval);
   stopActiveTunnel('server_sigterm');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
+  clearInterval(pingerInterval);
   stopActiveTunnel('server_sigint');
   process.exit(0);
 });
@@ -369,4 +427,5 @@ process.on('SIGINT', () => {
 const server = app.listen(PUBLIC_PORT, '0.0.0.0', () => {
   console.log(`[Dashboard Server] Listening on http://0.0.0.0:${PUBLIC_PORT}`);
   addLog(`Server online. Public interface on 0.0.0.0:${PUBLIC_PORT}, hidden proxy on ${INTERNAL_HOST}:${INTERNAL_PORT}`);
+  addLog(`Keep-alive pinger initialized (Every 40s -> ${pingerState.url})`, 'info');
 });

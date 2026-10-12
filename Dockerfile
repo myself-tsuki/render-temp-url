@@ -28,6 +28,7 @@ COPY public/ ./public/
 ENV PORT=10000
 ENV INTERNAL_HOST=127.0.0.1
 ENV INTERNAL_PORT=8000
+ENV PING_URL=https://render-temp-url.onrender.com/
 
 # Render detects and binds to 10000 only.
 # Port 8000 is intentionally NOT exposed and bound to 127.0.0.1 loopback only.

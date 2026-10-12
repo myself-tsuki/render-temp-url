@@ -36,6 +36,11 @@
         <span class="label">STEALTH PROXY:</span>
         <strong id="badge-stealth-port">127.0.0.1:8000</strong>
       </div>
+      <div class="badge badge-pinger" id="badge-pinger" title="Keep-Alive Pinger running every 40s">
+        <span class="dot dot-amber" id="pinger-dot"></span>
+        <span class="label">PINGER (40s):</span>
+        <strong id="pinger-status-badge">40s ACTIVE</strong>
+      </div>
       <div class="badge badge-status" id="badge-conn-status">
         <span class="dot dot-cyan"></span>
         <span id="conn-status-text">CONNECTED</span>
@@ -203,6 +208,29 @@
             </button>
           </div>
         </form>
+
+        <div class="pinger-card">
+          <div class="flex-between">
+            <div class="pinger-title">
+              <span class="dot dot-amber"></span>
+              <strong>40s Keep-Alive Pinger</strong>
+            </div>
+            <span class="pinger-counter mono" id="pinger-count-text">0 pings</span>
+          </div>
+          <div class="pinger-input-row">
+            <input
+              type="url"
+              id="input-pinger-url"
+              value="https://render-temp-url.onrender.com/"
+              placeholder="https://render-temp-url.onrender.com/"
+            />
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-save-pinger">Set Target</button>
+          </div>
+          <div class="pinger-meta flex-between">
+            <span class="hint" id="pinger-last-status">Status: Waiting for next ping cycle...</span>
+            <span class="hint mono" id="pinger-interval-text">Interval: 40s</span>
+          </div>
+        </div>
 
         <div class="stealth-info-callout">
           <div class="stealth-icon">🛡️</div>
