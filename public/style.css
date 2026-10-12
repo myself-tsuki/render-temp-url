@@ -256,6 +256,30 @@ body {
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
 }
 
+.extend-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.5rem;
+}
+
+.btn-extend {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(0, 240, 255, 0.1);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-extend:hover {
+  background: rgba(0, 240, 255, 0.25);
+  color: #fff;
+  box-shadow: 0 0 8px var(--accent-cyan-glow);
+}
+
 .tunnel-url-box {
   display: flex;
   align-items: center;

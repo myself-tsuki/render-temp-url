@@ -184,18 +184,20 @@
     if (session.status === 'starting') {
       activeTunnelLink.textContent = 'Allocating trycloudflare.com tunnel...';
       activeTunnelLink.removeAttribute('href');
+      liveTimer.textContent = 'INITIALIZING';
+      timerProgressFill.style.width = '100%';
       btnSubmit.disabled = true;
       btnSpinner.style.display = 'inline-block';
       btnSubmitText.textContent = 'Generating Quick Tunnel...';
+      if (countdownInterval) clearInterval(countdownInterval);
     } else if (session.status === 'active' && session.tunnelUrl) {
       activeTunnelLink.textContent = session.tunnelUrl;
       activeTunnelLink.href = session.tunnelUrl;
       btnSubmit.disabled = false;
       btnSpinner.style.display = 'none';
       btnSubmitText.textContent = 'Restart / Switch Target';
+      startCountdown();
     }
-
-    startCountdown();
   }
 
   // -----------------------------------------------------------
@@ -230,6 +232,31 @@
     } finally {
       btnStopActive.disabled = false;
     }
+  });
+
+  document.querySelectorAll('.btn-extend').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const additionalSeconds = parseInt(btn.dataset.extend, 10);
+      try {
+        btn.disabled = true;
+        const res = await fetch('/api/tunnel/extend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ additionalSeconds })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to extend');
+        }
+        if (data.status?.session) {
+          renderSessionState(data.status.session);
+        }
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
   });
 
   // -----------------------------------------------------------

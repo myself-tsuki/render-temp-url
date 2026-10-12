@@ -125,24 +125,25 @@ function stopActiveTunnel(reason = 'stopped_by_user') {
 function startCloudflared(targetUrl, durationSeconds) {
   stopActiveTunnel('new_tunnel_requested');
 
+  const cleanTargetUrl = targetUrl.trim().replace(/\/+$/, '');
   const now = Date.now();
-  const expiresAt = now + durationSeconds * 1000;
 
   activeSession = {
     id: 'tun_' + Math.random().toString(36).substring(2, 9),
-    targetUrl,
+    targetUrl: cleanTargetUrl,
     status: 'starting',
     tunnelUrl: null,
     createdAt: new Date(now).toISOString(),
-    expiresAt: new Date(expiresAt).toISOString(),
+    establishedAt: null,
+    expiresAt: null,
     durationSeconds
   };
 
-  requestStats.activeTarget = targetUrl;
+  requestStats.activeTarget = cleanTargetUrl;
   broadcast({ type: 'status', data: getStatusPayload() });
-  addLog(`Starting tunnel proxy for: ${targetUrl} (Duration: ${durationSeconds}s)`);
+  addLog(`Starting tunnel proxy for: ${cleanTargetUrl} (Allocated TTL: ${durationSeconds}s)`);
 
-  const internalProxyUrl = `http://${INTERNAL_HOST}:${INTERNAL_PORT}`;
+  const internalProxyUrl = `http://localhost:${INTERNAL_PORT}`;
 
   try {
     tunnelProcess = spawn('cloudflared', ['tunnel', '--url', internalProxyUrl, '--no-autoupdate'], {
@@ -156,6 +157,14 @@ function startCloudflared(targetUrl, durationSeconds) {
     return;
   }
 
+  // Timeout if cloudflared fails to register within 60s
+  const startupTimeout = setTimeout(() => {
+    if (activeSession && activeSession.status === 'starting') {
+      addLog('Cloudflared timed out while trying to establish quick tunnel.', 'error');
+      stopActiveTunnel('startup_timeout');
+    }
+  }, 60000);
+
   const handleTunnelOutput = (chunk) => {
     const text = chunk.toString();
     const lines = text.split('\n');
@@ -167,9 +176,24 @@ function startCloudflared(targetUrl, durationSeconds) {
       // Extract trycloudflare URL
       const match = line.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
       if (match && activeSession && activeSession.status === 'starting') {
+        clearTimeout(startupTimeout);
         activeSession.tunnelUrl = match[0];
         activeSession.status = 'active';
+
+        const establishedTime = Date.now();
+        activeSession.establishedAt = new Date(establishedTime).toISOString();
+        activeSession.expiresAt = new Date(establishedTime + activeSession.durationSeconds * 1000).toISOString();
+
         addLog(`Quick Tunnel established: ${activeSession.tunnelUrl}`, 'success');
+        addLog(`TTL countdown activated: will expire in ${activeSession.durationSeconds}s`, 'info');
+
+        // Start countdown ONLY now that tunnel is verified active
+        if (expirationTimer) clearTimeout(expirationTimer);
+        expirationTimer = setTimeout(() => {
+          addLog(`Tunnel reached expiration time limit (${activeSession.durationSeconds}s)`, 'warn');
+          stopActiveTunnel('expired');
+        }, activeSession.durationSeconds * 1000);
+
         broadcast({ type: 'status', data: getStatusPayload() });
       }
 
@@ -185,6 +209,7 @@ function startCloudflared(targetUrl, durationSeconds) {
   tunnelProcess.stderr.on('data', handleTunnelOutput);
 
   tunnelProcess.on('error', (err) => {
+    clearTimeout(startupTimeout);
     addLog(`cloudflared process error: ${err.message}`, 'error');
     if (activeSession) {
       activeSession.status = 'failed';
@@ -194,6 +219,7 @@ function startCloudflared(targetUrl, durationSeconds) {
   });
 
   tunnelProcess.on('exit', (code, signal) => {
+    clearTimeout(startupTimeout);
     addLog(`cloudflared exited with code ${code} (${signal || 'clean'})`, 'warn');
     if (activeSession && activeSession.status === 'active') {
       activeSession.status = 'stopped';
@@ -201,12 +227,6 @@ function startCloudflared(targetUrl, durationSeconds) {
     }
     tunnelProcess = null;
   });
-
-  // Schedule auto expiration
-  expirationTimer = setTimeout(() => {
-    addLog(`Tunnel reached expiration time limit (${durationSeconds}s)`, 'warn');
-    stopActiveTunnel('expired');
-  }, durationSeconds * 1000);
 }
 
 function getStatusPayload() {
@@ -283,6 +303,39 @@ app.post('/api/tunnel/stop', (req, res) => {
   res.json({
     message: 'Tunnel stopped successfully',
     previousSession: stopped,
+    status: getStatusPayload()
+  });
+});
+
+app.post('/api/tunnel/extend', (req, res) => {
+  const { additionalSeconds } = req.body;
+  const extra = parseInt(additionalSeconds, 10);
+
+  if (!activeSession || activeSession.status !== 'active') {
+    return res.status(400).json({ error: 'No active tunnel session to extend.' });
+  }
+
+  if (isNaN(extra) || extra <= 0 || extra > 43200) {
+    return res.status(400).json({ error: 'Invalid additional seconds.' });
+  }
+
+  const currentExpiry = activeSession.expiresAt ? new Date(activeSession.expiresAt).getTime() : Date.now();
+  const newExpiry = currentExpiry + extra * 1000;
+  activeSession.expiresAt = new Date(newExpiry).toISOString();
+  activeSession.durationSeconds = (activeSession.durationSeconds || 0) + extra;
+
+  if (expirationTimer) clearTimeout(expirationTimer);
+  const remainingMs = Math.max(1000, newExpiry - Date.now());
+  expirationTimer = setTimeout(() => {
+    addLog(`Tunnel reached extended expiration time limit`, 'warn');
+    stopActiveTunnel('expired');
+  }, remainingMs);
+
+  addLog(`Tunnel lifetime extended by +${extra}s (New TTL: ${Math.round(remainingMs / 1000)}s remaining)`, 'success');
+  broadcast({ type: 'status', data: getStatusPayload() });
+
+  res.json({
+    message: `Extended by ${extra}s`,
     status: getStatusPayload()
   });
 });
